@@ -5,8 +5,9 @@ import Airtable from 'airtable';
 import {
   Card, CardContent, Grid, Typography, ButtonBase, Button, makeStyles,
 } from '@material-ui/core';
+import CircularProgress from '@material-ui/core/CircularProgress';
 import ArrowBack from '@material-ui/icons/ArrowBack';
-import CartItem from './CartItem';
+import CartItem from './CartItemDisplay';
 import CartCardHeader from './CartCardHeader';
 import Fruit3 from '../../assets/images/Fruit3.svg';
 import Fruit4 from '../../assets/images/Fruit4.svg';
@@ -116,32 +117,22 @@ const useStyles = makeStyles({
   green: {
     color: '#53AA48',
   },
+  buttonProgress: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginTop: -8,
+    marginLeft: -8,
+  },
 });
 
 function CartScreen() {
-  const [cartListings, setCartListings] = useState([]);
   const [subtotal, setSubtotal] = useState(0);
   const [loading, setLoading] = useState(true);
   // TODO: style error message display
   const [errorMessage, setErrorMessage] = useState();
-
+  const [cartListings, setCartListings] = useState([]);
   const classes = useStyles();
-
-  // calls airtable on start to fetch listings in cart and calculate a subtotal
-  useEffect(() => {
-    setSubtotal(0);
-    base('Reserved Listings').select({ view: 'Grid view' }).all().then((records) => {
-      records.map((element) => base('Listings').find(element.fields['listing id'][0], (err, record) => {
-        const currCartItemPrice = element.fields.pallets * record.fields['standard price per pallet'];
-        setSubtotal((prevTotal) => (prevTotal + currCartItemPrice));
-      }));
-      setCartListings(records);
-      setLoading(false);
-    })
-      .catch((error) => {
-        setErrorMessage(error.message);
-      });
-  }, []);
 
   // update subtotal function that is passed to each listing detail allowing adjustments
   // (ex. on quantity change, or listing is removed)
@@ -162,56 +153,93 @@ function CartScreen() {
     setCartListings(cartListings.filter((listing) => listing.id !== id));
   }
 
+  // calls airtable on start to fetch listings in cart and calculate a subtotal
+  useEffect(() => {
+    base('Reserved Listings').select({ view: 'Grid view' }).all().then((records) => {
+      const promiseArray = records.map((element) => new Promise((resolve) => {
+        base('Listings').find(element.fields['listing id'][0], (err, record) => {
+          const currCartItemPrice = element.fields.pallets * record.fields['standard price per pallet'];
+          setSubtotal((prevTotal) => (prevTotal + currCartItemPrice));
+          return resolve(
+            <CartItem
+              key={element.id}
+              id={element.id}
+              reservedListingID={element.id}
+              pallets={element.fields.pallets}
+              listingID={element.fields['listing id']}
+              updateSubtotal={updateSubtotal}
+              removeListing={removeListing}
+              crop={record.fields.crop}
+              unitsPerPallet={record.fields['units per pallet']}
+              unitType={record.fields['unit type']}
+              price={record.fields['standard price per pallet']}
+              maxAvailable={record.fields['pallets available']}
+              usersInterested={record.fields['users interested']}
+            />,
+          );
+        });
+      }));
+
+      Promise.all(promiseArray).then((cartPromiseListings) => {
+        setCartListings(cartPromiseListings);
+        setLoading(false);
+      });
+    })
+      .catch((error) => {
+        setErrorMessage(error.message);
+      });
+  }, []);
+
+  // update subtotal function that is passed to each listing detail allowing adjustments
+  // (ex. on quantity change, or listing is removed)
+
   return (
     <div className={classes.root}>
-      <div className={classes.container}>
-        <Typography className={classes.cartHeader}>
-          Cart
-        </Typography>
-        <Typography className={classes.farmLabel}>
-          Shopping from Farm
-        </Typography>
+      {!loading
+        ? (
+          <div className={classes.container}>
+            <Typography className={classes.cartHeader}>
+              Cart
+            </Typography>
+            <Typography className={classes.farmLabel}>
+              Shopping from Farm
+            </Typography>
 
-        {!loading && (
-          <Card className={classes.cartCard}>
-            <CardContent>
-              <CartCardHeader />
-              { cartListings.map((cartListing) => (
-                <CartItem
-                  key={cartListing.id}
-                  reservedListingID={cartListing.id}
-                  pallets={cartListing.fields.pallets}
-                  listingID={cartListing.fields['listing id']}
-                  updateSubtotal={updateSubtotal}
-                  removeListing={removeListing}
-                />
-              ))}
-              <Grid container alignItems="center" justify="flex-end">
-                <Grid item xs />
-                <Grid item xs={3} md={2}>
-                  <Typography gutterBottom className={classes.subtotalLabel} align="center">
-                    SUBTOTAL:
-                  </Typography>
+            <Card className={classes.cartCard}>
+              <CardContent>
+                <CartCardHeader />
+                {cartListings}
+                <Grid container alignItems="center" justify="flex-end">
+                  <Grid item xs />
+                  <Grid item xs={3} md={2}>
+                    <Typography gutterBottom className={classes.subtotalLabel} align="center">
+                      SUBTOTAL:
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={1}>
+                    <Typography gutterBottom className={classes.subtotal} align="center">
+                      $
+                      {parseFloat(subtotal).toFixed(2)}
+                    </Typography>
+                  </Grid>
                 </Grid>
-                <Grid item xs={1}>
-                  <Typography gutterBottom className={classes.subtotal} align="center">
-                    $
-                    {parseFloat(subtotal).toFixed(2)}
-                  </Typography>
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
-        )}
-        <span className={classes.buttonContainer}>
-          <ButtonBase>
-            <ArrowBack className={classes.green} />
-            <div className={classes.continueShoppingButton}>Continue shopping</div>
-          </ButtonBase>
-          <Button variant="contained" className={classes.checkoutButton}>Checkout</Button>
-        </span>
-        {errorMessage && <p>{errorMessage}</p>}
-      </div>
+              </CardContent>
+            </Card>
+
+            <span className={classes.buttonContainer}>
+              <ButtonBase>
+                <ArrowBack className={classes.green} />
+                <div className={classes.continueShoppingButton}>Continue shopping</div>
+              </ButtonBase>
+              <Button variant="contained" className={classes.checkoutButton}>Checkout</Button>
+            </span>
+
+            {errorMessage && <p>{errorMessage}</p>}
+
+          </div>
+        )
+
+        : <CircularProgress size={24} className={classes.buttonProgress} />}
       <img src={Fruit3} alt="" className={classes.fruit3} />
       <img src={Fruit4} alt="" className={classes.fruit4} />
     </div>

@@ -1,47 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import Airtable from 'airtable';
+import React from 'react';
 import PropTypes from 'prop-types';
 import CartItemDisplay from './CartItemDisplay';
 
-const airtableConfig = {
-  apiKey: process.env.REACT_APP_AIRTABLE_USER_KEY,
-  baseKey: process.env.REACT_APP_AIRTABLE_BASE_KEY,
-};
-
-const base = new Airtable({ apiKey: airtableConfig.apiKey }).base(airtableConfig.baseKey);
-
 export default function CartItem({
-  reservedListingID, pallets, listingID, updateSubtotal, removeListing,
+  reservedListingID, pallets, updateSubtotal, removeListing, crop, unitsPerPallet,
+  unitType,
+  price,
+  maxAvailable,
+  usersInterested,
 }) {
-  const [listingDetails, setListingDetails] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  // TODO: style error message display
-  const [errorMessage, setErrorMessage] = useState();
-
-  useEffect(() => {
-    base('Listings').find(listingID[0], (err, record) => {
-      if (err) { setErrorMessage(err); return; }
-      setListingDetails(record);
-      setLoading(false);
-    });
-  }, []);
-
-  if (!loading && reservedListingID) {
+  if (reservedListingID) {
     return (
       <>
-        {errorMessage && <p>{errorMessage}</p>}
         <CartItemDisplay
           id={reservedListingID}
-          crop={listingDetails.fields.crop}
+          crop={crop}
           pallets={pallets}
-          unitsPerPallet={listingDetails.fields['units per pallet']}
-          unitType={listingDetails.fields['unit type']}
-          price={listingDetails.fields['standard price per pallet']}
+          unitsPerPallet={unitsPerPallet}
+          unitType={unitType}
+          price={price}
           updateSubtotal={updateSubtotal}
           removeListing={removeListing}
-          maxAvailable={listingDetails.fields['pallets available']}
-          usersInterested={listingDetails.fields['users interested']}
+          maxAvailable={maxAvailable}
+          usersInterested={usersInterested}
         />
       </>
     );
@@ -52,7 +33,12 @@ export default function CartItem({
 CartItem.propTypes = {
   reservedListingID: PropTypes.string.isRequired,
   pallets: PropTypes.number.isRequired,
-  listingID: PropTypes.arrayOf(PropTypes.string).isRequired,
   updateSubtotal: PropTypes.func.isRequired,
   removeListing: PropTypes.func.isRequired,
+  crop: PropTypes.string.isRequired,
+  unitsPerPallet: PropTypes.number.isRequired,
+  unitType: PropTypes.string.isRequired,
+  price: PropTypes.number.isRequired,
+  maxAvailable: PropTypes.number.isRequired,
+  usersInterested: PropTypes.number.isRequired,
 };
