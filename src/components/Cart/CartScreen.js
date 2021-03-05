@@ -143,14 +143,57 @@ function CartScreen() {
   // removes reservedListing from airtable and cartListings state
   // is also passed to detail view that has the delete button
   function removeListing(id) {
-    base('Reserved Listings').destroy([id],
-      (err) => {
-        if (err) {
-          setErrorMessage(err);
-        }
-      });
+    setLoading(true);
+    setSubtotal(0);
+    console.log(cartListings);
+    base('Reserved Listings').destroy([id], (erro) => {
+      if (erro) {
+        console.error(erro);
+        return;
+      }
+      setLoading(true);
+      base('Reserved Listings').select({ view: 'Grid view' }).all().then((records) => {
+        const promiseArray = records.map((element) => new Promise((resolve) => {
+          base('Listings').find(element.fields['listing id'][0], (err, record) => {
+            const currCartItemPrice = element.fields.pallets * record.fields['standard price per pallet'];
+            setSubtotal((prevTotal) => (prevTotal + currCartItemPrice));
+            return resolve(
+              <CartItem
+                key={element.id}
+                id={element.id}
+                reservedListingID={element.id}
+                pallets={element.fields.pallets}
+                listingID={element.fields['listing id']}
+                updateSubtotal={updateSubtotal}
+                removeListing={removeListing}
+                crop={record.fields.crop}
+                unitsPerPallet={record.fields['units per pallet']}
+                unitType={record.fields['unit type']}
+                price={record.fields['standard price per pallet']}
+                maxAvailable={record.fields['pallets available']}
+                usersInterested={record.fields['users interested']}
+              />,
+            );
+          });
+        }));
 
-    setCartListings(cartListings.filter((listing) => listing.id !== id));
+        async function asyncCall(promises) {
+          await setCartListings(promises);
+          setLoading(false);
+          console.log(cartListings);
+          // expected output: "resolved"
+        }
+
+        Promise.all(promiseArray).then((cartPromiseListings) => {
+          asyncCall(cartPromiseListings);
+          setLoading(false);
+        });
+      })
+        .catch((error) => {
+          setErrorMessage(error.message);
+        });
+      setCartListings(cartListings.filter((listing) => listing.id !== id));
+    });
   }
 
   // calls airtable on start to fetch listings in cart and calculate a subtotal
@@ -180,9 +223,15 @@ function CartScreen() {
         });
       }));
 
-      Promise.all(promiseArray).then((cartPromiseListings) => {
-        setCartListings(cartPromiseListings);
+      async function asyncCall(promises) {
+        await setCartListings(promises);
         setLoading(false);
+        console.log(cartListings);
+        // expected output: "resolved"
+      }
+
+      Promise.all(promiseArray).then((cartPromiseListings) => {
+        asyncCall(cartPromiseListings);
       });
     })
       .catch((error) => {
