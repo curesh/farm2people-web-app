@@ -15,7 +15,7 @@ import { Columns } from './schema';
 const BASE_ID = process.env.REACT_APP_AIRTABLE_BASE_ID;
 
 const API_KEY = process.env.REACT_APP_AIRTABLE_API_KEY;
-const ENDPOINT_URL = 'http://localhost:3000';
+const ENDPOINT_URL = 'http://farm2peopleserver1-env.eba-mgwcgvhw.us-west-2.elasticbeanstalk.com/';
 const VIEW = 'Grid view';
 
 Airtable.configure({

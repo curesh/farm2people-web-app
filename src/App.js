@@ -38,7 +38,7 @@ export default function App() {
 
   return (
     <div className="App">
-      <Router history={history}>
+      <Router history={history} basename="/farm2people-web-app">
         <Navbar
           authenticated={authenticated}
           userRole={userRole}
